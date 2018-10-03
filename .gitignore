@@ -1,5 +1,7 @@
 /target
 **/*.rs.bk
+*.suo
+*.swp
 *.iso
 .idea
 build

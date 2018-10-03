@@ -3,4 +3,13 @@ name = "first_os"
 version = "0.1.0"
 authors = ["Joseph Ferano <joseph@ferano.io>"]
 
+[lib]
+crate_type = ["staticlib"]
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+
 [dependencies]
