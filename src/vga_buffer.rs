@@ -1,9 +1,6 @@
 use core::fmt;
 use volatile::Volatile;
 
-const BUFFER_WIDTH : usize = 25;
-const BUFFER_HEIGHT : usize = 80;
-
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
@@ -42,6 +39,9 @@ struct ScreenChar {
     color_code : ColorCode,
 }
 
+const BUFFER_HEIGHT : usize = 25;
+const BUFFER_WIDTH : usize = 80;
+
 struct Buffer {
     chars : [[Volatile<ScreenChar>; BUFFER_WIDTH]; BUFFER_HEIGHT],
 }
@@ -53,6 +53,7 @@ pub struct Writer {
 }
 
 impl Writer {
+
     pub fn new() -> Writer {
         Writer {
             col_pos: 0,
@@ -82,31 +83,29 @@ impl Writer {
         }
     }
 
-    pub fn write_string(&mut self, s: &str) {
+    fn write_string(&mut self, s: &str) {
         for byte in s.bytes() {
             match byte {
-                // printable ASCII byte or newline
                 0x20...0x7e | b'\n' => self.write_byte(byte),
-                // not part of printable ASCII range
                 _ => self.write_byte(0xfe),
             }
-
         }
     }
+
     pub fn write_line(&mut self, s : &str) {
         self.new_line();
         self.write_string(s);
     }
 
-    fn new_line(&mut self) {
+    pub fn new_line(&mut self) {
         for row in 1..BUFFER_HEIGHT {
             for col in 0..BUFFER_WIDTH {
                 let c = self.buffer.chars[row][col].read();
                 self.buffer.chars[row - 1][col].write(c);
             }
-            self.clear_row(BUFFER_HEIGHT - 1);
-            self.col_pos = 0;
         }
+        self.clear_row(BUFFER_HEIGHT - 1);
+        self.col_pos = 0;
     }
 
     fn clear_row(&mut self, row : usize) {
@@ -116,6 +115,12 @@ impl Writer {
         };
         for col in 0..BUFFER_WIDTH {
             self.buffer.chars[row][col].write(blank);
+        }
+    }
+
+    pub fn clear_screen(&mut self) {
+        for row in 0..BUFFER_HEIGHT {
+            self.clear_row(row);
         }
     }
 }
