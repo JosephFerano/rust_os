@@ -1,3 +1,5 @@
+use core::fmt;
+use volatile::Volatile;
 
 const BUFFER_WIDTH : usize = 25;
 const BUFFER_HEIGHT : usize = 80;
@@ -41,7 +43,7 @@ struct ScreenChar {
 }
 
 struct Buffer {
-    chars : [[ScreenChar; BUFFER_WIDTH]; BUFFER_HEIGHT],
+    chars : [[Volatile<ScreenChar>; BUFFER_WIDTH]; BUFFER_HEIGHT],
 }
 
 pub struct Writer {
@@ -54,12 +56,12 @@ impl Writer {
     pub fn new() -> Writer {
         Writer {
             col_pos: 0,
-            color_code: ColorCode::new(Color::White, Color::Green),
+            color_code: ColorCode::new(Color::Green, Color::DarkGray),
             buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
         }
     }
 
-    pub fn write_byte(&mut self, byte : u8) {
+    pub fn write_byte(&mut self, byte: u8) {
         match byte {
             b'\n' => self.new_line(),
             byte => {
@@ -70,30 +72,37 @@ impl Writer {
                 let row = BUFFER_HEIGHT - 1;
                 let col = self.col_pos;
 
-                let cc = self.color_code;
-                self.buffer.chars[row][col] = ScreenChar {
-                    ascii_char : byte,
-                    color_code : cc,
-                };
+                let color_code = self.color_code;
+                self.buffer.chars[row][col].write(ScreenChar {
+                    ascii_char: byte,
+                    color_code: color_code,
+                });
                 self.col_pos += 1;
-            },
+            }
         }
     }
 
-    pub fn write_string(&mut self, s : &str) {
-        for b in s.bytes() {
-            match b {
-                0x20...0x7e | b'\n' => self.write_byte(b),
-                _ => self.write_byte(0xfe)
+    pub fn write_string(&mut self, s: &str) {
+        for byte in s.bytes() {
+            match byte {
+                // printable ASCII byte or newline
+                0x20...0x7e | b'\n' => self.write_byte(byte),
+                // not part of printable ASCII range
+                _ => self.write_byte(0xfe),
             }
+
         }
+    }
+    pub fn write_line(&mut self, s : &str) {
+        self.new_line();
+        self.write_string(s);
     }
 
     fn new_line(&mut self) {
         for row in 1..BUFFER_HEIGHT {
             for col in 0..BUFFER_WIDTH {
-                let c = self.buffer.chars[row][col];
-                self.buffer.chars[row - 1][col] = c;
+                let c = self.buffer.chars[row][col].read();
+                self.buffer.chars[row - 1][col].write(c);
             }
             self.clear_row(BUFFER_HEIGHT - 1);
             self.col_pos = 0;
@@ -106,7 +115,15 @@ impl Writer {
             color_code : self.color_code,
         };
         for col in 0..BUFFER_WIDTH {
-            self.buffer.chars[row][col] = blank;
+            self.buffer.chars[row][col].write(blank);
         }
     }
+}
+
+impl fmt::Write for Writer {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        self.write_string(s);
+        Ok(())
+    }
+
 }
