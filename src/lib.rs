@@ -8,10 +8,10 @@ mod vga_buffer;
 
 use core::panic::PanicInfo;
 use vga_buffer::*;
+use core::fmt::Write;
 
 #[no_mangle]
 pub extern fn rust_main(multiboot_info_address : usize) {
-    use core::fmt::Write;
     let mut writer = Writer::new();
 
     let boot_info = unsafe { multiboot2::load(multiboot_info_address) };
@@ -21,7 +21,8 @@ pub extern fn rust_main(multiboot_info_address : usize) {
     writer.new_line();
     for area in memory_map_tag.memory_areas() {
         writeln!(writer, "    start: 0x{:x}, end: 0x{:x}",
-            area.start_address(), area.end_address());
+            area.start_address(),
+            area.end_address());
     }
     loop {}
 }
@@ -31,6 +32,10 @@ pub extern fn rust_main(multiboot_info_address : usize) {
 pub extern fn eh_personality() {}
 
 #[panic_handler]
-pub extern fn panic(_info : &PanicInfo) -> ! { loop{} }
+pub extern fn panic(info : &PanicInfo) -> ! {
+    let mut writer = Writer::new();
+    writeln!(writer, "{}", info);
+    loop{}
+}
 
 
