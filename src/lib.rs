@@ -20,9 +20,21 @@ pub extern fn rust_main(multiboot_info_address : usize) {
     writer.write_line("Memory areas:");
     writer.new_line();
     for area in memory_map_tag.memory_areas() {
-        writeln!(writer, "    start: 0x{:x}, end: 0x{:x}",
+        writeln!(writer, "    start: 0x{:x}, end: 0x{:x}, size: {:x}",
             area.start_address(),
-            area.end_address());
+            area.end_address(),
+            area.size());
+    }
+
+    let elf_sections_tag = boot_info.elf_sections_tag()
+        .expect("Elf-sections tag required");
+    writer.write_line("Kernel sections: ");
+    writer.new_line();
+    for section in elf_sections_tag.sections() {
+        writeln!(writer, "    addr: 0x{:x}, size: 0x{:x}, flags: 0x{:x}",
+            section.start_address(),
+            section.size(),
+            section.flags());
     }
     loop {}
 }
